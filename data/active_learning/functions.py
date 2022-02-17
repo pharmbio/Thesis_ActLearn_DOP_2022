@@ -31,8 +31,32 @@ def column_extraction(data_list,column_number): #columns start counting in 0
         col.append(dato)
     return col 
 
-#def bring_data(path_specs, path_covid):
-    # Loading compound library
-#    specs = pd.read_csv('path_specs')
-#    sss = pd.read_csv('path_covid')
-#    return specs, sss
+def sss_vs_specs_compound_detection(library, experiment):
+    notfound_count = 0
+    notfound_index_list = []
+    notfound_label_list = []
+    for index, row in experiment.iterrows():
+        if index < 793: #Skip controls 
+            continue
+        else:
+            compound = row['ID_covid']
+            aux = library['ID_library'].loc[library['ID_library'] == compound].tolist()
+            if len(aux) == 0:
+                notfound_count += 1
+                notfound_index_list.append(index)
+                label = row['Labels']
+                notfound_label_list.append(label)
+    print(f'There are {notfound_count} compounds not founded')
+    return notfound_index_list , notfound_label_list
+
+def labelling(data, labels_position, label_positive, label_negative, threshold):
+    labels = []
+    for index, row in data.iterrows():
+        mito_value = row['Intensity_MeanIntensity_illumMITO_cells.1']
+        if mito_value <= threshold:
+            label = label_positive
+        else:
+            label = label_negative
+        labels.append(label)
+    data.insert(labels_position, "Labels", labels, True)
+    return data
