@@ -92,18 +92,25 @@ def select_median(experiments, df_to_be_ready, repeated_compounds):
     in_size = len(df_to_be_ready) 
     
     for compound in repeated_compounds:
-    
+                
         np.random.seed(17)
 
         aux = experiments['Intensity_MeanIntensity_illumMITO_cells'].loc[experiments['CompoundID'] == compound] # Accessing info from the repeated compounds found in SPECS
         aux.columns = ['0','1'] #Renaming columns bcs of problem with column replication
         aux.drop('0', axis=1, inplace=True)
         aux2 = aux.sort_values(by=['1'], ascending=True) # Sort to access the median
-
+        
+        #if (counter > 42 & counter < 45):
+        #    print(f'Compound {compound}')
+        #    print(f' Auxiliar {aux2}')
+        
         # Non-permanent solution
         if len(aux2) == 2:
             median_index = np.random.choice(aux.index.tolist())
             median = aux2['1'][median_index]
+            if (counter > 42 & counter < 45):
+                print(f'Median index {median_index}')
+                print(median)
         else:
             median = aux2.median(axis=0).tolist()
             median_index = aux2.index[aux2['1'] == median[0]].tolist()
