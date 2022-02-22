@@ -2,6 +2,12 @@ from pandas import read_excel
 import csv
 import pandas as pd
 import numpy as np
+import rdkit
+from rdkit import Chem
+from rdkit.Chem.MolStandardize import rdMolStandardize
+
+# Loading and standardization method for SMILES -> RDKit molecule object
+uncharger = rdMolStandardize.Uncharger()
 
 def load_csv(filename):
     file = open(filename, "r", encoding="utf-8")
@@ -170,3 +176,9 @@ def select_median_v2(experiments, df_to_be_ready, repeated_compounds):
     
     return df_to_be_ready
 
+def standardize(smiles):
+    mol = Chem.MolFromSmiles(smiles)
+    if mol:
+        mol = rdMolStandardize.FragmentParent(mol)
+        mol = uncharger.uncharge(mol)
+    return mol
