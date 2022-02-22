@@ -131,3 +131,42 @@ def select_median(experiments, df_to_be_ready, repeated_compounds):
     
     return df_to_be_ready
 
+def select_median_v2(experiments, df_to_be_ready, repeated_compounds):
+    
+    for i in range(len(repeated_compounds)):
+
+        compound = repeated_compounds[i]
+
+        np.random.seed(17)
+
+        #print(f'Compound {compound} ') 
+
+        #Find those compounds in the whole sss dataset
+        indexes = experiments.index[experiments['CompoundID'] == compound].tolist()
+        temp1 = experiments.iloc[indexes, [-1]]
+        #print(f'List of indices: {indexes}')
+        if len(temp1) == 2:
+            median_index = np.random.choice(indexes)
+            #print(median_index)
+        else:
+            median = temp1.median().tolist()[0]
+            median_index = temp1.index[temp1['Intensity_MeanIntensity_illumMITO_cells'] == median].tolist()[0]
+            #print(median_index)
+
+        row = experiments.iloc[[median_index]]
+        #print(f'Row info {row.info()}')
+
+        df_to_be_ready = df_to_be_ready.append(row)
+
+        ids = df_to_be_ready["CompoundID"]
+        temp2 = df_to_be_ready[ids.isin(ids[ids.duplicated()])]
+        if len(temp2) > 0:
+            print("Repeticioooooooon")
+            break    
+
+    #print(f'Finally done \n The lenght now is {len(df_to_be_ready)} rows')
+    #Reordering indexes
+    df_to_be_ready.reset_index(drop=True, inplace=True)
+    
+    return df_to_be_ready
+
