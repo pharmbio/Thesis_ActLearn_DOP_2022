@@ -5,6 +5,10 @@ import numpy as np
 import rdkit
 from rdkit import Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from sklearn.model_selection import cross_val_score, KFold, train_test_split
+
 
 # Loading and standardization method for SMILES -> RDKit molecule object
 uncharger = rdMolStandardize.Uncharger()
@@ -182,3 +186,32 @@ def standardize(smiles):
         mol = rdMolStandardize.FragmentParent(mol)
         mol = uncharger.uncharge(mol)
     return mol
+
+# split dataset into test set, train set and unlabel pool
+def split(x_dataset, y_dataset, ini_train_size, test_size):
+    x_train, x_test, y_train, y_test = train_test_split(x_dataset, y_dataset, test_size = test_size, random_state=23654,shuffle =True)
+    x_labelled, x_pool, y_labelled, y_pool = train_test_split(x_train, y_train, train_size = ini_train_size,random_state=23654, shuffle = True)
+    return x_labelled, y_labelled, x_test, y_test, x_pool, y_pool 
+
+def plot_incremental_accuracy(performance_history, save, figure_name):
+# Plot our performance over time.
+    fig, ax = plt.subplots(figsize=(6,4), dpi=130)
+
+    #ax.axhline(y=.95, xmin=0, xmax=20, color='r', linestyle='-', linewidth=1.5)
+    #ax.plot(performance_history, c = )
+    ax.scatter(range(len(performance_history)), performance_history, s=15, 
+               edgecolor=(.937, .275,.282), linewidth=0.1, facecolor=(.937, .275, .282))
+
+    ax.xaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5, integer=True))
+    ax.yaxis.set_major_locator(mpl.ticker.MaxNLocator(nbins=5))
+    ax.set_ylim(bottom=0.95, top=1)
+    #ax.axes.autoscale(enable=True, axis='y', tight=True)
+    ax.yaxis.set_major_formatter(mpl.ticker.PercentFormatter(xmax=1))
+    ax.grid(True)
+
+    ax.set_title('Incremental classification accuracy')
+    ax.set_xlabel('Query iteration')
+    ax.set_ylabel('Classification Accuracy')
+    if save:
+        plt.savefig("".join(["incr_accu_", figure_name, ".jpg"]), bbox_inches='tight')
+    plt.show()
