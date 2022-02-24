@@ -323,3 +323,7 @@ def plot_cf_mat(matrix, save, figure_name):
 
     ## Display the visualization of the Confusion Matrix.
     #plt.show()
+    
+def plot_name_generator(model_name, train_size, test_size, query_str_name):
+    name = "".join([model_name,'_',str(train_size),'_',str(test_size),'_',query_str_name])
+    return name
