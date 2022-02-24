@@ -2,13 +2,18 @@ from pandas import read_excel
 import csv
 import pandas as pd
 import numpy as np
-import rdkit
-from rdkit import Chem
-from rdkit.Chem.MolStandardize import rdMolStandardize
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import seaborn as sns
+import random
+
 from sklearn.model_selection import cross_val_score, KFold, train_test_split
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, mean_squared_error
+from sklearn.decomposition import PCA
+from sklearn.neighbors import KNeighborsClassifier
+from modAL.models import ActiveLearner
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.cross_decomposition import PLSRegression
 
 import rdkit
 from rdkit import Chem
@@ -30,6 +35,12 @@ uncharger = rdMolStandardize.Uncharger()
 
 # Loading and standardization method for SMILES -> RDKit molecule object
 uncharger = rdMolStandardize.Uncharger()
+
+
+# ********************************************************************************
+# *************************** FUNCTIONS ******************************************
+# ********************************************************************************
+
 
 def load_csv(filename):
     file = open(filename, "r", encoding="utf-8")
@@ -232,7 +243,7 @@ def plot_incremental_accuracy(performance_history, save, figure_name):
     ax.set_ylabel('Classification Accuracy')
     if save:
         plt.savefig("".join(["incr_accu_", figure_name, ".jpg"]), bbox_inches='tight')
-    plt.show()
+    #plt.show()
     
     
 def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
@@ -251,14 +262,30 @@ def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
     
     return X_morgan, X_rdkit, y
 
-def active_learnig_train(n_queries, learner, x_train, y_train, x_test, y_test, x_pool, y_pool):
+def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, Classifier):
     
     performance_history = []
+    cf_matrix_history = []
+    learner = ActiveLearner(estimator=Classifier, X_training = x_train, y_training = y_train)
+    
+    #Making predictions
+    y_pred = learner.predict(x_test)
 
+    #Calculate and report our model's accuracy.
+    model_accuracy = learner.score(x_test, y_test)
+    
+    #Generate the confusion matrix
+    cf_matrix = confusion_matrix(y_test, y_pred)
+    
+    # Save our model's performance for plotting.
+    performance_history.append(model_accuracy)
+    cf_matrix_history.append(cf_matrix)
+    
     # Allow our model to query our unlabeled dataset for the most
     # informative points according to our query strategy (uncertainty sampling).
     for index in range(n_queries):
         
+        #Query for a new point
         query_index, query_instance = learner.query(x_pool)
 
         # Teach our ActiveLearner model the record it has requested.
@@ -267,19 +294,32 @@ def active_learnig_train(n_queries, learner, x_train, y_train, x_test, y_test, x
 
         # Remove the queried instance from the unlabeled pool.
         x_pool, y_pool = np.delete(x_pool, query_index, axis=0), np.delete(y_pool, query_index)
-
-        # Calculate and report our model's accuracy.
-        model_accuracy = learner.score(x_test, y_test)
         
-        #Generate the confusion matrix
+        y_pred = learner.predict(x_test)
+        model_accuracy = learner.score(x_test, y_test)
         cf_matrix = confusion_matrix(y_test, y_pred)
+        performance_history.append(model_accuracy)
+        cf_matrix_history.append(cf_matrix)
 
-        print(cf_matrix)
-
+      
         if index % 30 == 0:
             print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
-
-        # Save our model's performance for plotting.
-        performance_history.append(model_accuracy)
         
-    return performance_history
+    return performance_history , cf_matrix_history
+
+def plot_cf_mat(matrix, save, figure_name):
+    fig, ax = plt.subplots(figsize=(5,4), dpi=130)
+    ax = sns.heatmap(matrix/np.sum(matrix), annot=True, fmt = '.2%', cmap=sns.light_palette((.376, .051, .224)))
+    ax.set_title('Confusion Matrix\n\n');
+    ax.set_xlabel('\nPredicted Values')
+    ax.set_ylabel('Actual Values ');
+
+    ## Ticket labels - List must be in alphabetical order
+    ax.xaxis.set_ticklabels(['False','True'])
+    ax.yaxis.set_ticklabels(['False','True'])
+    
+    if save:
+        plt.savefig("".join(["cf_mat_", figure_name, ".jpg"]), bbox_inches='tight')
+
+    ## Display the visualization of the Confusion Matrix.
+    #plt.show()
