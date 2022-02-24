@@ -8,6 +8,24 @@ from rdkit.Chem.MolStandardize import rdMolStandardize
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from sklearn.model_selection import cross_val_score, KFold, train_test_split
+from sklearn.metrics import confusion_matrix
+
+import rdkit
+from rdkit import Chem
+from rdkit.Chem import AllChem,DataStructs,Draw,PandasTools,Descriptors
+from rdkit.Chem.MolStandardize import rdMolStandardize
+from rdkit.Chem.Draw import IPythonConsole
+from rdkit import RDLogger
+
+from IPython.display import Image
+
+# Configure the logging - RDKit is rather verbose..
+lg = RDLogger.logger()
+lg.setLevel(RDLogger.CRITICAL)
+# Set the molecule representation to be SVG 
+PandasTools.molRepresentation='svg'
+# Loading and standardization method for SMILES -> RDKit molecule object
+uncharger = rdMolStandardize.Uncharger()
 
 
 # Loading and standardization method for SMILES -> RDKit molecule object
@@ -215,3 +233,53 @@ def plot_incremental_accuracy(performance_history, save, figure_name):
     if save:
         plt.savefig("".join(["incr_accu_", figure_name, ".jpg"]), bbox_inches='tight')
     plt.show()
+    
+    
+def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
+    # generate Morgan fingerprint with radius 2
+    fps = [AllChem.GetMorganFingerprintAsBitVect(m, morgan_radius, nBits=morgan_n_bits) for m in data['MOL']]
+    # convert the RDKit explicit vectors into numpy arrays
+    X_morgan = np.asarray(fps)
+
+    # generate RDKFingerprint with default settings
+    rdkit_fp = [Chem.RDKFingerprint(m, fpSize=fp_n_bits) for m in data['MOL']]
+    # convert the RDKit explicit vectors into numpy arrays
+    X_rdkit = np.asarray(rdkit_fp)
+
+    # Get the target values 
+    y = data['Labels'].to_numpy()
+    
+    return X_morgan, X_rdkit, y
+
+def active_learnig_train(n_queries, learner, x_train, y_train, x_test, y_test, x_pool, y_pool):
+    
+    performance_history = []
+
+    # Allow our model to query our unlabeled dataset for the most
+    # informative points according to our query strategy (uncertainty sampling).
+    for index in range(n_queries):
+        
+        query_index, query_instance = learner.query(x_pool)
+
+        # Teach our ActiveLearner model the record it has requested.
+        XX, yy = x_pool[query_index].reshape(1, -1), y_pool[query_index].reshape(1, )
+        learner.teach(X=XX, y=yy)
+
+        # Remove the queried instance from the unlabeled pool.
+        x_pool, y_pool = np.delete(x_pool, query_index, axis=0), np.delete(y_pool, query_index)
+
+        # Calculate and report our model's accuracy.
+        model_accuracy = learner.score(x_test, y_test)
+        
+        #Generate the confusion matrix
+        cf_matrix = confusion_matrix(y_test, y_pred)
+
+        print(cf_matrix)
+
+        if index % 30 == 0:
+            print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
+
+        # Save our model's performance for plotting.
+        performance_history.append(model_accuracy)
+        
+    return performance_history
