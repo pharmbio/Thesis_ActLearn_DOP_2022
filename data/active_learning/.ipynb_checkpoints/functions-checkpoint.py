@@ -298,6 +298,7 @@ def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_
         y_pred = learner.predict(x_test)
         model_accuracy = learner.score(x_test, y_test)
         cf_matrix = confusion_matrix(y_test, y_pred)
+        #print(cf_matrix)
         performance_history.append(model_accuracy)
         cf_matrix_history.append(cf_matrix)
 
@@ -305,12 +306,13 @@ def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_
         if index % 30 == 0:
             print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
         
-    return performance_history , cf_matrix_history
+    return performance_history , cf_matrix_history, learner
 
-def plot_cf_mat(matrix, save, figure_name):
-    fig, ax = plt.subplots(figsize=(5,4), dpi=130)
-    ax = sns.heatmap(matrix/np.sum(matrix), annot=True, fmt = '.2%', cmap=sns.light_palette((.376, .051, .224)))
-    ax.set_title('Confusion Matrix\n\n');
+def plot_cf_mat(matrix, save, figure_name, ax = None):
+    ax = ax or plt.gca()
+    #fig, ax = plt.subplots()
+    ax = sns.heatmap(matrix/np.sum(matrix), annot=True, fmt = '.2%', cmap=sns.light_palette((.376, .051, .224)), ax=ax)
+    #ax.set_title('Confusion Matrix\n\n');
     ax.set_xlabel('\nPredicted Values')
     ax.set_ylabel('Actual Values ');
 
@@ -323,6 +325,7 @@ def plot_cf_mat(matrix, save, figure_name):
 
     ## Display the visualization of the Confusion Matrix.
     #plt.show()
+    return ax
     
 def plot_name_generator(model_name, train_size, test_size, query_str_name):
     name = "".join([model_name,'_',str(train_size),'_',str(test_size),'_',query_str_name])
