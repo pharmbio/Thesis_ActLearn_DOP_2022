@@ -262,11 +262,11 @@ def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
     
     return X_morgan, X_rdkit, y
 
-def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, Classifier):
+def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, Classifier, query_str):
     
     performance_history = []
     cf_matrix_history = []
-    learner = ActiveLearner(estimator=Classifier, X_training = x_train, y_training = y_train)
+    learner = ActiveLearner(estimator=Classifier, query_strategy = query_str, X_training = x_train, y_training = y_train)
     
     #Making predictions
     y_pred = learner.predict(x_test)
@@ -303,18 +303,19 @@ def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_
         cf_matrix_history.append(cf_matrix)
 
       
-        if index % 30 == 0:
+        if index % 100 == 0:
             print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
         
     return performance_history , cf_matrix_history, learner
 
-def plot_cf_mat(matrix, save, figure_name, ax = None):
+def plot_cf_mat(matrix, sub_title, save, figure_name, ax = None):
     ax = ax or plt.gca()
     #fig, ax = plt.subplots()
     ax = sns.heatmap(matrix/np.sum(matrix), annot=True, fmt = '.2%', cmap=sns.light_palette((.376, .051, .224)), ax=ax)
     #ax.set_title('Confusion Matrix\n\n');
     ax.set_xlabel('\nPredicted Values')
-    ax.set_ylabel('Actual Values ');
+    ax.set_ylabel('Actual Values ')
+    ax.set_title(sub_title ,size=6)
 
     ## Ticket labels - List must be in alphabetical order
     ax.xaxis.set_ticklabels(['False','True'])
