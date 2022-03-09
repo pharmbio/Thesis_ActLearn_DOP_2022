@@ -320,9 +320,8 @@ def plot_cf_mat(matrix, sub_title, save, figure_name, ax = None):
     ## Ticket labels - List must be in alphabetical order
     ax.xaxis.set_ticklabels(['False','True'])
     ax.yaxis.set_ticklabels(['False','True'])
-    
     if save:
-        plt.savefig("".join(["cf_mat_", figure_name, ".jpg"]), bbox_inches='tight')
+        plt.savefig("".join(["cf_mat_", figure_name, ".jpg"]), bbox_inches='tight',dpi=150)
 
     ## Display the visualization of the Confusion Matrix.
     #plt.show()
