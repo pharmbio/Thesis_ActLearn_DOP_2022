@@ -11,9 +11,12 @@ from sklearn.model_selection import cross_val_score, KFold, train_test_split
 from sklearn.metrics import confusion_matrix, mean_squared_error
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
-from modAL.models import ActiveLearner
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.cross_decomposition import PLSRegression
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn import svm, tree
+
+from modAL.disagreement import vote_entropy_sampling 
+from modAL.models import ActiveLearner, Committee  
 
 import rdkit
 from rdkit import Chem
@@ -330,3 +333,63 @@ def plot_cf_mat(matrix, sub_title, save, figure_name, ax = None):
 def plot_name_generator(model_name, train_size, test_size, query_str_name):
     name = "".join([model_name,'_',str(train_size),'_',str(test_size),'_',query_str_name])
     return name
+
+def initialise_committe(x_train, y_train,classifiers_list, query_str):
+    # initializing Committee members
+    n_members = len(classifiers_list)
+    learner_list = list()
+
+    for member_idx in range(n_members):
+
+        # initializing learner
+        learner = ActiveLearner(
+            estimator=classifiers_list[member_idx],
+            X_training=x_train, y_training = y_train,
+            query_strategy = query_str
+        )
+        learner_list.append(learner)
+
+    # assembling the committee
+    committee = Committee(learner_list=learner_list)
+    return committee
+
+# Active learning with QBC
+def active_learnig_train_committee(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, classifiers_list, query_str):
+    performance_history = []
+    cf_matrix_history = []
+
+    committee = initialise_committe(x_train,y_train,classifiers_list,query_str)
+    # Making predictions
+    y_pred = committee.predict(x_test)
+
+    # Calculate and report our model's accuracy.
+    model_accuracy = committee.score(x_test, y_test)
+
+    # Generate the confusion matrix
+    cf_matrix = confusion_matrix(y_test, y_pred)
+
+    # Save our model's performance for plotting.
+    performance_history.append(model_accuracy)
+    cf_matrix_history.append(cf_matrix)
+
+    for index in range(n_queries):
+        # Query a new instance
+        query_idx, query_instance = committee.query(x_pool)
+
+        # Teach our ActiveLearner model the record it has requested.
+        XX, yy = x_pool[query_idx].reshape(1, -1), y_pool[query_idx].reshape(1, )
+        committee.teach(X=XX, y=yy)
+
+        # Remove the queried instance from the unlabeled pool.
+        x_pool, y_pool = np.delete(x_pool, query_idx, axis=0), np.delete(y_pool, query_idx)
+
+        y_pred = committee.predict(x_test)
+        model_accuracy = committee.score(x_test, y_test)
+        cf_matrix = confusion_matrix(y_test, y_pred)
+        performance_history.append(model_accuracy)
+        cf_matrix_history.append(cf_matrix)
+
+        if index % 100 == 0:
+                print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
+        
+    return performance_history , cf_matrix_history, committee
