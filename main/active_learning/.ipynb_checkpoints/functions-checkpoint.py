@@ -16,7 +16,10 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn import svm, tree
 
 from modAL.disagreement import vote_entropy_sampling 
-from modAL.models import ActiveLearner, Committee  
+from modAL.models import ActiveLearner, Committee
+from modAL.multilabel import SVM_binary_minimum
+from modAL.density import information_density
+from modAL.expected_error import expected_error_reduction
 
 import rdkit
 from rdkit import Chem
@@ -265,6 +268,7 @@ def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
     
     return X_morgan, X_rdkit, y
 
+'''
 def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, Classifier, query_str):
     
     performance_history = []
@@ -273,7 +277,8 @@ def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_
     
     #Making predictions
     y_pred = learner.predict(x_test)
-
+    print(type(learner))
+    
     #Calculate and report our model's accuracy.
     model_accuracy = learner.score(x_test, y_test)
     
@@ -310,6 +315,7 @@ def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_
             print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
         
     return performance_history , cf_matrix_history, learner
+'''
 
 def plot_cf_mat(matrix, sub_title, save, figure_name, ax = None):
     ax = ax or plt.gca()
@@ -393,3 +399,72 @@ def active_learnig_train_committee(n_queries, x_train, y_train, x_test, y_test, 
                 print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
         
     return performance_history , cf_matrix_history, committee
+
+def _density_sampling(X, metric):
+    # Compute the information density
+    euclidean_density = information_density(X)
+    
+    #Query for a new point
+    query_index = np.argmax(euclidean_density)
+    query_instance = X[query_index]
+    
+    return query_index, query_instance
+
+def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, Classifier, query_str):
+    
+    if query_str == 'density_sampling':
+        learner = Classifier
+        learner.fit(x_train,y_train)
+    else:
+        learner = ActiveLearner(estimator= Classifier, query_strategy = query_str, X_training = x_train, y_training = y_train)
+    
+    performance_history = []
+    cf_matrix_history = []
+    
+    #Making predictions
+    y_pred = learner.predict(x_test)
+    
+    #Calculate and report our model's accuracy.
+    model_accuracy = learner.score(x_test, y_test)
+    
+    #Generate the confusion matrix
+    cf_matrix = confusion_matrix(y_test, y_pred)
+    
+    # Save our model's performance for plotting.
+    performance_history.append(model_accuracy)
+    cf_matrix_history.append(cf_matrix)
+    
+    # Allow our model to query our unlabeled dataset for the most
+    # informative points according to our query strategy (uncertainty sampling).
+    for index in range(n_queries):
+        
+        #Query for a new point
+        if query_str == 'density_sampling':
+            query_index, query_instance = _density_sampling(x_pool, 'euclidean')
+        else:
+            query_index, query_instance = learner.query(x_pool)
+
+        # Teach our ActiveLearner model the record it has requested.
+        XX, yy = x_pool[query_index].reshape(1, -1), y_pool[query_index].reshape(1, )
+        if query_str == 'density_sampling':
+            x_train = np.concatenate((x_train,XX), axis=0)
+            y_train = np.concatenate((y_train,yy), axis=0)
+            learner.fit(x_train,y_train)
+        else:
+            learner.teach(X=XX, y=yy)
+
+        # Remove the queried instance from the unlabeled pool.
+        x_pool, y_pool = np.delete(x_pool, query_index, axis=0), np.delete(y_pool, query_index)
+        
+        y_pred = learner.predict(x_test)
+        model_accuracy = learner.score(x_test, y_test)
+        cf_matrix = confusion_matrix(y_test, y_pred)
+        #print(cf_matrix)
+        performance_history.append(model_accuracy)
+        cf_matrix_history.append(cf_matrix)
+
+      
+        if index % 100 == 0:
+            print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
+        
+    return performance_history , cf_matrix_history, learner
