@@ -252,7 +252,7 @@ def plot_incremental_accuracy(performance_history, save, figure_name):
     #plt.show()
     
     
-def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
+def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data, labels = False):
     # generate Morgan fingerprint with radius 2
     fps = [AllChem.GetMorganFingerprintAsBitVect(m, morgan_radius, nBits=morgan_n_bits) for m in data['MOL']]
     # convert the RDKit explicit vectors into numpy arrays
@@ -263,10 +263,12 @@ def feature_creation(morgan_radius, morgan_n_bits, fp_n_bits, data):
     # convert the RDKit explicit vectors into numpy arrays
     X_rdkit = np.asarray(rdkit_fp)
 
-    # Get the target values 
-    y = data['Labels'].to_numpy()
-    
-    return X_morgan, X_rdkit, y
+    # Get the target values
+    if labels:
+        y = data['Labels'].to_numpy()
+        return X_morgan, X_rdkit, y
+    else:
+        return X_morgan, X_rdkit
 
 '''
 def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_pool, Classifier, query_str):
