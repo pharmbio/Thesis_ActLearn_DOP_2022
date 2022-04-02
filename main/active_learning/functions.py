@@ -470,3 +470,46 @@ def active_learnig_train(n_queries, x_train, y_train, x_test, y_test, x_pool, y_
             print('Accuracy after query {n}: {acc:0.4f}'.format(n=index + 1, acc=model_accuracy))
         
     return performance_history , cf_matrix_history, learner
+
+def labelling_v2(data, col_reference, labels_position, label_positive, label_negative, threshold):
+    labels = []
+    for index, row in data.iterrows():
+        mito_value = row[col_reference]#[1]
+        if mito_value <= threshold:
+            label = label_positive
+        else:
+            label = label_negative
+        labels.append(label)
+    data.insert(labels_position, "Labels_"+str(col_reference), labels, True)
+    return data
+
+def getDuplicateColumns(df):
+  
+    # Create an empty set
+    duplicateColumnNames = set()
+      
+    # Iterate through all the columns 
+    # of dataframe
+    for x in range(df.shape[1]):
+          
+        # Take column at xth index.
+        col = df.iloc[:, x]
+          
+        # Iterate through all the columns in
+        # DataFrame from (x + 1)th index to
+        # last index
+        for y in range(x + 1, df.shape[1]):
+              
+            # Take column at yth index.
+            otherCol = df.iloc[:, y]
+              
+            # Check if two columns at x & y
+            # index are equal or not,
+            # if equal then adding 
+            # to the set
+            if col.equals(otherCol):
+                duplicateColumnNames.add(df.columns.values[y])
+                  
+    # Return list of unique column names 
+    # whose contents are duplicates.
+    return list(duplicateColumnNames)
