@@ -7,13 +7,18 @@ import matplotlib as mpl
 import seaborn as sns
 import random
 
-from sklearn.model_selection import cross_val_score, KFold, train_test_split
-from sklearn.metrics import confusion_matrix, mean_squared_error
+from sklearn.model_selection import cross_val_score, KFold, train_test_split, StratifiedKFold
+from sklearn.metrics import confusion_matrix, mean_squared_error, classification_report, f1_score, mean_squared_log_error, recall_score
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LinearRegression, Ridge, Lasso
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn import svm, tree
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, RandomForestRegressor, AdaBoostRegressor, BaggingRegressor
+from sklearn import svm, tree    #https://scikit-learn.org/stable/modules/svm.html
+                                 #https://scikit-learn.org/stable/modules/generated/sklearn.tree.DecisionTreeClassifier.html
+from sklearn.cluster import KMeans
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
 
 from modAL.disagreement import vote_entropy_sampling 
 from modAL.models import ActiveLearner, Committee
@@ -513,3 +518,106 @@ def getDuplicateColumns(df):
     # Return list of unique column names 
     # whose contents are duplicates.
     return list(duplicateColumnNames)
+
+
+def train_kfold_model_selection(X,y,kfold, threshold, model_list):
+    #define cross-validation method to use
+    cv = KFold(n_splits=kfold, random_state=1, shuffle=True)
+    
+    #To store results
+    MEAN_MODEL_SCORE_DICT = {}
+    BEST_F1_SCORES = []
+    for model in model_list: #Loop on the list of models
+    
+        print(f'---- Model: {model}')
+        acc_score = []
+        f1_scores = []
+        acc = 100000
+        for train_index , test_index in cv.split(X): #Create the splits
+            X_train , X_test = X.iloc[train_index,:],X.iloc[test_index,:]
+            y_train , y_test = y[train_index] , y[test_index]
+            # Train
+            model.fit(X_train,y_train)
+            y_pred = model.predict(X_test)
+            # Evaluate
+            new_acc = mean_squared_error(y_pred , y_test)
+            acc_score.append(new_acc)
+            
+            if new_acc <= acc:
+                
+                # Plot results
+                results = pd.DataFrame({'Actual': y_test.values.flatten(), 'Predicted': y_pred.flatten()})
+                results = labelling_v2(results, col_reference='Actual', labels_position = 1, label_positive=1, label_negative=0, threshold=threshold)
+                results = labelling_v2(results, col_reference='Predicted', labels_position = 3, label_positive=1, label_negative=0, threshold=threshold)
+                y_test_bin = results['Labels_Actual'].tolist()
+                y_pred_bin = results['Labels_Predicted'].tolist()
+                cd_mo = confusion_matrix(y_test_bin, y_pred_bin)
+                fig, ax = plt.subplots(1, 1, figsize=(4,3))
+                ax = sns.heatmap(cd_mo/np.sum(cd_mo), annot=True, fmt = '.2%', cmap=sns.light_palette((.376, .051, .224)), ax=ax)
+                ax.set_xlabel('\nPredicted Values')
+                ax.set_ylabel('Actual Values ')
+
+                ## Ticket labels - List must be in alphabetical order
+                ax.xaxis.set_ticklabels(['False','True'])
+                ax.yaxis.set_ticklabels(['False','True'])
+                plt.show()
+                
+                #Compute and store f1 soceres
+                f1sc = f1_score(y_test_bin,y_pred_bin)
+                recsc = recall_score(y_test_bin, y_pred_bin)
+                f1_scores.append(f1sc)
+                print(f'F1-score: {f1sc}')
+                print(f'Recall: {recsc}')
+                
+                #Update new best accuracy
+                acc = new_acc
+
+        avg_acc_score = sum(acc_score)/kfold
+        print('Avg meand squared error: {}'.format(avg_acc_score))
+        MEAN_MODEL_SCORE_DICT[str(model)] = acc_score
+        BEST_F1_SCORES.append(f1_scores[-1])
+    
+    return MEAN_MODEL_SCORE_DICT, BEST_F1_SCORES
+
+def train_kfold_model_selection_v2(X,y, kfold, threshold, model_list):
+    #define cross-validation method to use
+    cv = KFold(n_splits=kfold, random_state=1, shuffle=True)
+    
+    #To store results
+    MEAN_MODEL_SCORE_DICT = {}
+    BEST_F1_SCORES = {}
+    for model in model_list: #Loop on the list of models
+    
+        print(f'---- Model: {model}')
+        acc_score = []
+        f1_scores = []
+        for train_index , test_index in cv.split(X): #Create the splits
+            X_train , X_test = X.iloc[train_index,:],X.iloc[test_index,:]
+            y_train , y_test = y[train_index] , y[test_index]
+            # Train
+            model.fit(X_train,y_train)
+            y_pred = model.predict(X_test)
+            # Evaluate
+            acc = mean_squared_error(y_pred , y_test)
+            acc_score.append(acc)
+            
+            #Transforming predictions into labels
+            results = pd.DataFrame({'Actual': y_test.values.flatten(), 'Predicted': y_pred.flatten()})
+            results = labelling_v2(results, col_reference='Actual', labels_position = 1, label_positive=1, label_negative=0, threshold=threshold)
+            results = labelling_v2(results, col_reference='Predicted', labels_position = 3, label_positive=1, label_negative=0, threshold=threshold)
+            y_test_bin = results['Labels_Actual'].tolist()
+            y_pred_bin = results['Labels_Predicted'].tolist()
+            cd_mo = confusion_matrix(y_test_bin, y_pred_bin)
+                
+            #Compute and store f1 scores
+            f1sc = f1_score(y_test_bin,y_pred_bin)
+            #recsc = recall_score(y_test_bin, y_pred_bin)
+            f1_scores.append(f1sc)
+                   
+        #avg_acc_score = sum(acc_score)/kfold
+        #print('Avg meand squared error: {}'.format(avg_acc_score))
+        MEAN_MODEL_SCORE_DICT[str(model)] = acc_score
+        BEST_F1_SCORES[str(model)] = f1_scores
+    
+    return MEAN_MODEL_SCORE_DICT, BEST_F1_SCORES
+
