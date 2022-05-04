@@ -535,7 +535,7 @@ def train_kfold_model_selection(X,y,kfold, threshold, model_list):
         acc = 100000
         for train_index , test_index in cv.split(X): #Create the splits
             X_train , X_test = X.iloc[train_index,:],X.iloc[test_index,:]
-            y_train , y_test = y[train_index] , y[test_index]
+            y_train , y_test = y.iloc[train_index] , y.iloc[test_index]
             # Train
             model.fit(X_train,y_train)
             y_pred = model.predict(X_test)
