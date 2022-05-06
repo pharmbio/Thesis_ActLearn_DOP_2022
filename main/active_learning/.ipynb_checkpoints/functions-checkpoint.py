@@ -8,7 +8,7 @@ import seaborn as sns
 import random
 
 from sklearn.model_selection import cross_val_score, KFold, train_test_split, StratifiedKFold
-from sklearn.metrics import confusion_matrix, mean_squared_error, classification_report, f1_score, mean_squared_log_error, recall_score
+from sklearn.metrics import confusion_matrix, mean_squared_error, classification_report, f1_score, mean_squared_log_error, recall_score, accuracy_score
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, LogisticRegression
